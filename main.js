@@ -1,5 +1,5 @@
 var express = require('express')
-  , bodyParser = require('body-parser');
+var bodyParser = require('body-parser');
 var app = express();
 
 //set global variable for search dates
@@ -35,11 +35,11 @@ function resCompare(existingRes,search) {
   if(logging) console.log(existingRes);
   var resOK = false;
   var checkInDate = moment(search.startDate);
-  var checkOutDate = moment(search.endDate); 
+  var checkOutDate = moment(search.endDate).add(1, 'days'); //json end date is final night at campground
   var resInDate = moment(existingRes.startDate);
-  var resOutDate = moment(existingRes.endDate);
+  var resOutDate = moment(existingRes.endDate).add(1, 'days'); //json end date is final night at the campgroun
   var gapBeforeResIn = moment(existingRes.startDate).subtract(gapNights, 'days');
-  var gapAfterResOut = moment(existingRes.endDate).add(gapNights, 'days'); 
+  var gapAfterResOut = moment(existingRes.endDate).add(gapNights+1, 'days'); 
   if(logging) {
     console.log('Existing reservation in: ' + resInDate.format('YYYY-MM-DD'));
     console.log('Existing reservation out: ' + resOutDate.format('YYYY-MM-DD'));
@@ -55,7 +55,7 @@ function resCompare(existingRes,search) {
     } else {
       //failed the gap rule between check in and previous reservation
       if(logging) console.log('failed the pre date gap rule');
-      return false;
+      resOK = false;
     }
   }
 
@@ -67,7 +67,7 @@ function resCompare(existingRes,search) {
     } else {
       //failed the gap rule between check out and next reservation
       if(logging) console.log('failed the post date gap rule');
-      return false;
+      resOK = false;
     }
   }
   return resOK;
@@ -159,10 +159,10 @@ app.post('/', function(req, res) {
   // Main loop through campsites for availability. //
   ///////////////////////////////////////////////////
   
+  var matchingSites = [];
   for(var i = 0; i < input.campsites.length; i++)  {
     //pull reservations for campsite
     var resList = campsiteRes(input.campsites[i].id,input.reservations);
-    var matchingSites = [];
 
     //check if site is available
     if(checkAvailability(input.campsites[i].id,resList,input.search)) {
