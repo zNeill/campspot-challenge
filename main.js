@@ -1,36 +1,35 @@
-var express = require('express')
+
+// Requisites
+var express = require('express');
 var bodyParser = require('body-parser');
 var app = express();
-
-//set global variable for search dates
-var checkInDate;
-var checkOutDate;
+var moment = require('moment'); //for easy to read date comparisons
+moment().format();
 
 //disable or enable logging to console
 var logging = true;
 
-//load moment.js library in order to facilitate date recognition.
-var moment = require('moment');
-moment().format();
-
-
 //Function to roughly validate yyyy-mm-dd format
-//Credit: stackoverflow user Thorben Bochenek 9/12/13
+//stackoverflow user Thorben Bochenek 9/12/13
 function isValidDate(dateString) {
   var regEx = /^\d{4}-\d{2}-\d{2}$/;
   return dateString.match(regEx) != null;
 }
 
-// Function to return filtered array of reservations given a campsite id
+//Return array of reservations for a single campsite
 function campsiteRes(siteId,reservations) {
   var filtered = reservations.filter(function (reservation) {
     return (reservation.campsiteId === siteId);
   });
   return filtered;
 }
+  
 
+//////////////////////////
+// Compare Reservations //
+//////////////////////////
+function resCompare(existingRes,search,gapNights) {
 //Function that takes a single reservation object and returns true if the reservation does not conflict or false if it does (considering both dates and gap rules)
-function resCompare(existingRes,search) {
   if(logging) console.log('now comparing this reservation:');
   if(logging) console.log(existingRes);
   var resOK = false;
@@ -73,10 +72,13 @@ function resCompare(existingRes,search) {
   return resOK;
 }
 
-// Function that takes a list of reservations for a given campsite and returns a boolean true or false if the site is available
-function checkAvailability(resList,search) {
-  if(logging) console.log('------------------------------------ starting check of availability for site');
+///////////////////////////////////////////
+// Check all reservations for a campsite //
+///////////////////////////////////////////
+function checkAvailability(resList,search,gapNights) {
+  console.log('------------------------------------ starting check of availability for site');
   //if no reservations return true
+  console.log();
   if(resList.length === 0) {
     return true;
   }
@@ -84,7 +86,8 @@ function checkAvailability(resList,search) {
   var conflictedRes = 0;
   //for each reservation
   for(var i = 0; i < resList.length; i++)  {
-    if(!resCompare(resList[i],search)) conflictedRes++;
+    //compare reservations
+    if(!resCompare(resList[i],search,gapNights)) conflictedRes++;
   }
   if(conflictedRes === 0) {
     return true;
@@ -93,6 +96,7 @@ function checkAvailability(resList,search) {
   }   
 }
 
+//Expect and parse JSON input
 app.use(bodyParser.json());
 
 //Basic usage instructions
@@ -101,7 +105,9 @@ app.get('/', function(req, res) {
 });
 
 
-
+//////////////////////////////////////////////////////////
+// Starting Point | HTTP POST sent to http://localhost/ //
+//////////////////////////////////////////////////////////
 app.post('/', function(req, res) {
   
   //prefer input as terminology
@@ -110,7 +116,6 @@ app.post('/', function(req, res) {
   ///////////////////////////////////
   // Error Checking of Input Data  //
   ///////////////////////////////////
-
 
   // Check search object
   if(input.search.hasOwnProperty('startDate') && input.search.hasOwnProperty('endDate')) {
@@ -133,17 +138,19 @@ app.post('/', function(req, res) {
   }
 
   //Check rules array
-  if(input.gapRules.constructor == Array) {
+  if(input.gapRules.constructor === Array) {
     for(var i = 0; i < input.gapRules.length; i++) {
-      if(!input.gapRules[i].gapSize.constructor == Number) res.status(400).send('Check the format of your rules array input')
+      if(!input.gapRules[i].gapSize.constructor === Number) res.status(400).send('Check the format of your rules array input')
     }
     //If gap rule was provided as URL variable and is in the array of gaprules, then use the specified gap rule (adjusting for starting at 0) or use the first gap rule if none specified. 
-    if(typeof req.query.gapRule !== 'undefined') {
-      if(-1 < Number(req.query.gapRule) <= input.gapRules.length)  var gapRuleI = req.query.gapRule;
+    if(typeof req.query.gapRule === 'Number') {
+      var gapRuleI = req.query.gapRule;
     }else {
       var gapRuleI = 0;
     }
     var gapNights = Number(input.gapRules[gapRuleI].gapSize);
+  }else{
+    res.status(400).send('Check the format')
   }
 
   //Check reservations array
@@ -163,9 +170,9 @@ app.post('/', function(req, res) {
   for(var i = 0; i < input.campsites.length; i++)  {
     //pull reservations for campsite
     var resList = campsiteRes(input.campsites[i].id,input.reservations);
-
     //check if site is available
-    if(checkAvailability(input.campsites[i].id,resList,input.search)) {
+    var isAvailable = checkAvailability(resList,input.search,gapNights);
+    if(isAvailable === true) {
       matchingSites.push(input.campsites[i].name);
     }
   }
