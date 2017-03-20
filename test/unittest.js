@@ -9,7 +9,7 @@ describe("Test various date logics", function () {
         // Configure the call with content-type and uri
         var options = {
             headers: { "Content-Type": "application/json"},
-            uri: 'http://localhost:3000/products',
+            uri: 'http://localhost:3000/',
             json: {
             
               "search" : {
@@ -22,10 +22,11 @@ describe("Test various date logics", function () {
                 { "id": 2, "name":"Booked Same Days"},
                 { "id": 3, "name":"One Day Gap after search"},
                 { "id": 3, "name":"One Day Gap before search"},
-                { "id": 4, "name":"Two Day Gap before search"}
+                { "id": 4, "name":"Two Day Gap before search"},
                 { "id": 5, "name":"Two Day Gap after search"},
-                { "id": 6, "name":"Match Before and Two Day Gap After"}
-                { "id": 7, "name":"Overlapping"}
+                { "id": 6, "name":"Match Before and Two Day Gap After"},
+                { "id": 7, "name":"Overlapping"},
+                { "id": 8, "name":"Two Day Gap Before and Match After"}
               ],
               "gapRules": [
                 {"gapSize": 2},
@@ -45,40 +46,48 @@ describe("Test various date logics", function () {
                 {"campsiteId": 6, "startDate":"2017-03-01", "endDate":"2017-03-03"},
                 {"campsiteId": 7, "startDate":"2017-03-01", "endDate":"2017-03-11"},
                 {"campsiteId": 7, "startDate":"2017-03-12", "endDate":"2017-03-13"},
-                {"campsiteId": 7, "startDate":"2017-03-16", "endDate":"2017-03-16"}
+                {"campsiteId": 7, "startDate":"2017-03-16", "endDate":"2017-03-16"},
+                {"campsiteId": 8, "startDate":"2017-03-10", "endDate":"2017-03-12"},
+                {"campsiteId": 8, "startDate":"2017-03-21", "endDate":"2017-03-24"},
+                {"campsiteId": 8, "startDate":"2017-03-25", "endDate":"2017-03-29"}
               ]
-
-
-              }
           
           }
         };
         // Make call
-        request.get(options, function (err, res, body) {
+        request.post(options, function (err, res, body) {
             result = {err, res, body};
             done();
         });
         
     });
-    // Test the result
+    // Test the results
     it('should execute without errors', function (done) {
        expect(result.err).to.equal(null);
        done();
     });
-    it('should return an array', function (done) {
-       expect(result.body).constructor.to.equal('Array');
+    it('should return 5 available sites', function (done) {
+       expect(result.body.length).to.equal(5);
        done();
     });
-    it('should return two available sites', function (done) {
-       expect(result.body.length).to.equal(2);
+    it('Should approve site with reservations before and after', function (done) {
+       expect(result.body[0]).to.equal("No Gap");
        done();
     });
-    it('should return lake haus', function (done) {
-       expect(result.body[0]).to.equal(1);
+    it('should approve site with 2 day gap before search start', function (done) {
+        expect(result.body[1]).to.equal("Two Day Gap before search");
        done();
     });
-    it('should return two ', function (done) {
-       expect(result.err).to.equal(null);
+    it('should approve site with 2 day gap after search end', function (done) {
+       expect(result.body[2]).to.equal("Two Day Gap after search");
+       done();
+    });
+    it('should approve site with matching date before and 2 day gap after', function (done) {
+       expect(result.body[3]).to.equal("Match Before and Two Day Gap After");
+       done();
+    });
+    it('should approve site with 2 day gap before and matching date after', function (done) {
+       expect(result.body[4]).to.equal("Two Day Gap Before and Match After");
        done();
     });
 });

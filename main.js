@@ -7,7 +7,7 @@ var moment = require('moment'); //for easy to read date comparisons
 moment().format();
 
 //disable or enable logging to console
-var logging = true;
+var logging = false;
 
 //Function to roughly validate yyyy-mm-dd format
 //stackoverflow user Thorben Bochenek 9/12/13
@@ -76,7 +76,7 @@ function resCompare(existingRes,search,gapNights) {
 // Check all reservations for a campsite //
 ///////////////////////////////////////////
 function checkAvailability(resList,search,gapNights) {
-  console.log('------------------------------------ starting check of availability for site');
+  if(logging) console.log('------------------------------------ starting check of availability for site');
   //if no reservations return true
   console.log();
   if(resList.length === 0) {
@@ -140,17 +140,18 @@ app.post('/', function(req, res) {
   //Check rules array
   if(input.gapRules.constructor === Array) {
     for(var i = 0; i < input.gapRules.length; i++) {
-      if(!input.gapRules[i].gapSize.constructor === Number) res.status(400).send('Check the format of your rules array input')
+      if(!(input.gapRules[i].gapSize.constructor === Number)) res.status(400).send('Check the format of your rules array input')
     }
-    //If gap rule was provided as URL variable and is in the array of gaprules, then use the specified gap rule (adjusting for starting at 0) or use the first gap rule if none specified. 
-    if(typeof req.query.gapRule === 'Number') {
-      var gapRuleI = req.query.gapRule;
+    //If gap rule URL variable (ex ?gr=2) and is in the array of gaprules
+    //then use the specified gap rule (adjusting for starting at 0) or use the first gap rule if none specified. 
+    if(req.query.gr < input.gapRules.length && req.query.gr >= 0) {
+      var gapRuleI = req.query.gr;
     }else {
       var gapRuleI = 0;
     }
     var gapNights = Number(input.gapRules[gapRuleI].gapSize);
   }else{
-    res.status(400).send('Check the format')
+    res.status(400).send('Check the format of gapRules in your input!');
   }
 
   //Check reservations array
@@ -170,7 +171,7 @@ app.post('/', function(req, res) {
   for(var i = 0; i < input.campsites.length; i++)  {
     //pull reservations for campsite
     var resList = campsiteRes(input.campsites[i].id,input.reservations);
-    //check if site is available
+    //check if site is :available
     var isAvailable = checkAvailability(resList,input.search,gapNights);
     if(isAvailable === true) {
       matchingSites.push(input.campsites[i].name);
