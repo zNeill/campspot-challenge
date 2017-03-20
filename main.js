@@ -36,7 +36,7 @@ function resCompare(existingRes,search,gapNights) {
   var checkInDate = moment(search.startDate);
   var checkOutDate = moment(search.endDate).add(1, 'days'); //json endDate is final night at campground
   var resInDate = moment(existingRes.startDate);
-  var resOutDate = moment(existingRes.endDate).add(1, 'days'); //json end date is final night at the campgroun
+  var resOutDate = moment(existingRes.endDate).add(1, 'days'); //json endDate is final night at the campgroun
   var gapBeforeResIn = moment(existingRes.startDate).subtract(gapNights, 'days');
   var gapAfterResOut = moment(existingRes.endDate).add(gapNights+1, 'days'); 
   if(logging) {
