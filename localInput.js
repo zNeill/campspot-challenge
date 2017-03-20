@@ -1,10 +1,8 @@
-//Campspot Challenge v1.0.0 by Neill Lewis
+
 // Requisites
-var express = require('express');
-var bodyParser = require('body-parser');
-var app = express();
 var moment = require('moment'); //for easy to read date comparisons
 moment().format();
+var input = require('./input.json');
 
 //disable or enable logging to console
 var logging = false;
@@ -34,7 +32,7 @@ function resCompare(existingRes,search,gapNights) {
   if(logging) console.log(existingRes);
   var resOK = false;
   var checkInDate = moment(search.startDate);
-  var checkOutDate = moment(search.endDate).add(1, 'days'); //json endDate is final night at campground
+  var checkOutDate = moment(search.endDate).add(1, 'days'); //json end date is final night at campground
   var resInDate = moment(existingRes.startDate);
   var resOutDate = moment(existingRes.endDate).add(1, 'days'); //json end date is final night at the campgroun
   var gapBeforeResIn = moment(existingRes.startDate).subtract(gapNights, 'days');
@@ -95,23 +93,13 @@ function checkAvailability(resList,search,gapNights) {
   }   
 }
 
-//Expect and parse JSON input
-app.use(bodyParser.json());
 
-//Basic usage instructions
-app.get('/', function(req, res) {
-  res.status(400).send('POST json object to this address to return list of bookings');
-});
+/////////////////////////////////////////////
+// Starting Point | Command Line Execution //
+/////////////////////////////////////////////
 
+function main() {
 
-//////////////////////////////////////////////////////////
-// Starting Point | HTTP POST sent to http://localhost/ //
-//////////////////////////////////////////////////////////
-app.post('/', function(req, res) {
-  
-  //prefer input as terminology
-  var input = req.body;
-  
   ///////////////////////////////////
   // Error Checking of Input Data  //
   ///////////////////////////////////
@@ -120,53 +108,67 @@ app.post('/', function(req, res) {
   if(input.search.hasOwnProperty('startDate') && input.search.hasOwnProperty('endDate')) {
     //Check that date values match yyyy-mm-dd format
     if(!(isValidDate(input.search.startDate) && isValidDate(input.search.endDate))) {
-      res.status(400).send('Search dates are not in ISO 8601 (yyyy-mm-dd) format!');  
+      console.log('Search dates are not in ISO 8601 (yyyy-mm-dd) format!');  
+      process.exit(1);
     }
 
     if(moment(input.search.startDate).isAfter(input.search.endDate)) {
-      res.status(400).send('Search dates are invalid. Check your input.');
+      console.log('Search dates are invalid. Check your input.');
+      process.exit(1);
     }
-    
     if(logging) {
       console.log("Search check in is " + moment(input.search.startDate).format('dddd MMMM D'));
       console.log("Search check out is " + moment(input.search.endDate).format('dddd MMMM D'));
     }
   }else {
     //Search dates not found in input json
-    res.status(400).send('Your input does not contain a search object with startDate and endDate'); 
+    console.log('Your input does not contain a search object with startDate and endDate'); 
+    process.exit(1);
   }
 
   //Check rules array
   if(input.gapRules.constructor === Array) {
     for(var i = 0; i < input.gapRules.length; i++) {
-      //verify all gap rules are numbers
-      if(!(input.gapRules[i].gapSize.constructor === Number)) res.status(400).send('Check the format of your rules array input')
+      if(!(input.gapRules[i].gapSize.constructor === Number)) {
+        console.log('Check the format of your rules array input');
+        process.exit(1);
+      }  
     }
-    //If gap rule URL variable (ex ?gr=2) and is in the array of gaprules
-    //then use the specified gap rule (adjusting for starting at 0) or use the first gap rule if none specified. 
-    if(req.query.gr < input.gapRules.length && req.query.gr >= 0) {
-      var gapRuleI = req.query.gr;
-    }else {
+    //If gap rule flag was added as command line argument vector at execution time
+    //then use the specified gap rule or use the first gap rule if none specified. 
+    if(process.argv.indexOf('-gr') != -1) {
+      var gapInput = process.argv[process.argv.indexOf('-gr') + 1];
+      if(gapInput < input.gapRules.length && gapInput >= 0) {
+        var gapRuleI = gapInput;
+      }else{
+        console.log('Sorry, you entered an invalid gap rule argument!');
+        process.exit(1);
+      }
+    }else { //else they did not enter a command line argument
       var gapRuleI = 0;
     }
     var gapNights = Number(input.gapRules[gapRuleI].gapSize);
-  }else{
-    res.status(400).send('Check the format of gapRules in your input!');
+  }else{ //else not an array in input file!
+    console.log('Check the format of gapRules in your input array!');
+    process.exit(1);
   }
 
   //Check reservations array
   if(input.reservations.constructor === Array) {
     for(var i = 0; i < input.reservations.length; i++) {
-      if(!(isValidDate(input.reservations[i].startDate) && isValidDate(input.reservations[i].endDate))) res.status(400).send('check date format in reservation ' + i);
+      if(!(isValidDate(input.reservations[i].startDate) && isValidDate(input.reservations[i].endDate))) {
+        console.log('check date format in reservation ' + i);
+      }
     }
   } else {
-    res.status(400).send("Input file does not contain array of reservations");
+    console.log("Input file does not contain array of reservations");
+    process.exit();
   }
 
   ///////////////////////////////////////////////////
   // Main loop through campsites for availability. //
   ///////////////////////////////////////////////////
-  
+
   var matchingSites = [];
   for(var i = 0; i < input.campsites.length; i++)  {
     //pull reservations for campsite
@@ -174,14 +176,11 @@ app.post('/', function(req, res) {
     //check if site is :available
     var isAvailable = checkAvailability(resList,input.search,gapNights);
     if(isAvailable === true) {
-      matchingSites.push(input.campsites[i].name);
+      console.log(input.campsites[i].name);
     }
   }
-  if(matchingSites.length > 0) {
-    res.send(matchingSites);
-  } else{
-    res.send('No Campsites Available');
-  }
-});
 
-app.listen(3000);
+}
+
+main();
+
